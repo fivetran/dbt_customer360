@@ -1,0 +1,86 @@
+
+# Name your project! Project names should contain only lowercase characters
+# and underscores. A good package name should reflect your organization's
+# name or the intended use of these models
+name: 'customer360'
+version: '1.0.0'
+config-version: 2
+
+on-run-start:
+    - "{% if target.type == 'redshift' %}{{ create_levenshtein_udf() }}{% endif %}" # only for redshift
+
+models:
+    customer360:
+        +schema: customer360
+        +materialized: table
+        prototype_IGNORE:
+            +enabled: false
+        cleaning:
+            +schema: int_customer360
+        identity_resolution:
+            +schema: int_customer360
+        # output: 
+        #     customer360__mapping:
+        #         +post-hook:
+        #             - "ALTER TABLE {{ ref('marketo__leads') }} ADD COLUMN IF NOT EXISTS customer360_id STRING"
+        #             - "UPDATE {{ ref('marketo__leads') }} as lead SET lead.customer360_id = mapping.customer360_id from (select distinct marketo_lead_id, customer360_id from {{ this }}) as mapping where lead.lead_id = mapping.marketo_lead_id"
+
+# vars:
+# Marketo vars - see Marketo README for more details + vars https://github.com/fivetran/dbt_marketo/blob/main/README.md 
+    # marketo_source:
+    #     marketo_database: <your-marketo-database-name> # if different from target.db
+    #     marketo_schema: <marketo_schema_name> # marketo by default
+    # marketo__first_date: <"2020-01-01" or some date> # may need this if datset is too large
+
+# Stripe vars - see Stripe README for more details + vars https://github.com/fivetran/dbt_stripe/blob/main/README.md
+    # stripe_source:
+    #     stripe_database: <your-stripe-database-name> # if different from target.db
+    #     stripe_schema: <stripe_schema_name> # stripe by default
+    # stripe__using_subscriptions: false # may need to disable if not using subscriptions
+
+# Zendesk vars - see Zendesk README for more details + vars https://github.com/fivetran/dbt_zendesk/blob/main/README.md
+    # zendesk_source:
+    #     zendesk_database: <your-zendesk-database-name> # if different from target.db
+    #     zendesk_schema:  <zendesk_schema_name> # zendesk by default
+    #     using_schedules: false # may need to disable if not using business hours
+    # zendesk: 
+    #     using_schedules: false # may need to disable if not using business hours
+    #     ticket_field_history_timeframe_years: <int value> # may need if data is too large
+
+# Customer360 vars - see README for details https://github.com/fivetran-jamie/customer360/blob/main/README.md
+    ## Provide SQL to split name fields in Stripe into individual vs organizational names
+    # stripe_customer_full_name_extract_sql: "replace( {{ dbt.split_part('customer_name', \"' ('\", 2) }}, ')', '')"
+    # stripe_customer_organization_name_extract_sql: "coalesce({{ dbt.split_part('customer_name', \"' ('\", 1) }}, customer_name)"
+    # stripe_shipping_full_name_extract_sql: "replace( {{ dbt.split_part('shipping_name', \"' ('\", 2) }}, ')', '')"
+    # stripe_shipping_organization_name_extract_sql: "coalesce({{ dbt.split_part('shipping_name', \"' ('\", 1) }}, shipping_name)"
+
+    ## Provide custom/internal IDs to increase identity resolution match rate
+    # customer360_internal_match_ids:
+    #     - name: sf_account_id # to serve as a generalized alias
+    #       customer_grain: organization # or individual
+    #       marketo: 
+    #         match_key: sfdc_account_id # field from marketo.LEAD to join on
+    #       stripe:
+    #         match_key: salesforce_account_id # attribute from stripe.CUSTOMER.metadata to join on
+    #       zendesk:
+    #           map_table: db.intermediate_tables.salesforce_to_fivetran_account
+    #           source: user # or organization - should we look at zendesk.USER or zendesk.ORGANIZATION
+    #           join_with_map_on: custom_fivetran_account_id # user.join_with_map_on = map_table.map_table_join_on
+    #           map_table_join_on: fivetran_account_id_c
+    #           match_key: account_c # field from mapping table (via zendesk.USER or zendesk.ORGANIZATION) to join on
+
+    #     - name: fivetran_account_id
+    #       customer_grain: organization
+    #       marketo: 
+    #           map_table: db.intermediate_tables.salesforce_to_fivetran_account
+    #           join_with_map_on: sfdc_account_id # field from marketo to join on 
+    #           map_table_join_on: account_c # field in mapping table to join on
+    #           match_key: fivetran_account_id_c # field to grab from mapping table and join with zendsk on 
+    #       stripe:
+    #           map_table: db.intermediate_tables.salesforce_to_fivetran_account
+    #           join_with_map_on: salesforce_account_id
+    #           map_table_join_on: account_c
+    #           match_key: fivetran_account_id_c
+    #       zendesk: 
+    #         match_key: custom_fivetran_account_id
+    #         source: user
