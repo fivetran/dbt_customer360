@@ -52,6 +52,8 @@ unioned as (
 
     select 
         mapping.customer360_id,
+        mapping.customer360_organization_id,
+        mapping.is_organization_header,
         marketo.full_name_clean as full_name,
         {# name_title as title,
         name_suffix as suffix, #}
@@ -68,6 +70,8 @@ unioned as (
 
     select 
         mapping.customer360_id,
+        mapping.customer360_organization_id,
+        mapping.is_organization_header,
         stripe_names.full_name,
         {# title,
         suffix, #}
@@ -84,6 +88,8 @@ unioned as (
 
     select 
         mapping.customer360_id,
+        mapping.customer360_organization_id,
+        mapping.is_organization_header,
         zendesk.full_name_clean as full_name,
         {# name_title as title,
         name_suffix as suffix, #}
@@ -101,6 +107,8 @@ rank_value_confidence as (
 
     select
         customer360_id,
+        customer360_organization_id,
+        is_organization_header,
         full_name,
         {# title,
         suffix, #}
@@ -116,6 +124,8 @@ final as (
 
     select
         customer360_id,
+        customer360_organization_id,
+        is_organization_header,
         full_name,
         {# title,
         suffix, #}

@@ -5,6 +5,8 @@ with zendesk as (
     select 
         user_id,
         lower(full_name_clean) as full_name_clean,
+        lower(organization_name_no_suffix) as organization_name_no_suffix,
+        organization_id,
         email,
         phone,
         updated_at,
@@ -31,7 +33,7 @@ zendesk_matching as (
             {{ match_set.name }} is not null or
         {%- endfor %}
     {% endif %}
-    ((full_name_clean is not null or email is not null)
+    (( {{ 'organization_name_no_suffix' if var('customer360_grain_zendesk', 'individual') == 'organization' else 'full_name_clean' }}  is not null or email is not null) -- todo: figure out how to include customer grain
     and (email is not null or phone is not null))
 ),
 
@@ -40,6 +42,8 @@ final as (
     select 
         user_id,
         full_name_clean,
+        organization_name_no_suffix,
+        organization_id,
         coalesce(email, 'null_zendesk') as email,
         coalesce(phone, 'null_zendesk') as phone,
         updated_at,

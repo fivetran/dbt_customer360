@@ -20,6 +20,8 @@ What is a customer? The lowest grain of individuality (ie individual vs company)
 - Stripe
 - Zendesk
 
+The package will insert an organization-level header row for easier aggregations across grains (`is_organization_header=true`).
+
 > Note: If you are a b2c organization, your source Stripe customer data (and potentially Marketo) may only exist at the organizational level, while other sources (Zendesk and likely Marketo) typically provide customer data at the individual level. Given this many:1 relationship, individual customers from one source may map onto multiple records in the Customer360 output models.
 
 The exact tables:
@@ -36,8 +38,18 @@ The exact tables:
 - A summary table surfacing the most "confident" values from above: `customer360__summary`.
 
 ## Variables
+### Grain of Source Data
+By default, this package assumes each of your data sources presents information at the Individual's level. However, if you are a b2c company, some of your data may exist at the Organization level. This is especially likely of Stripe as opposed to Zendesk and Marketo, in which typically individuals operate.
 
-### Stripe name configs
+Tell the package the grain of your source data to better perform identity resolution.
+```yml
+vars:
+  customer360_grain_stripe: organization # default = individual
+  customer360_grain_marketo: organization # default = individual
+  customer360_grain_zendesk: organization # default = individual
+```
+
+### Stripe Individual-Name Configs
 Stripe doesn't have distinct name fields for individuals vs organizations. If you store both the indvidual and the company name, and in a consistent enforced format, use the below variables to tell the package how to parse them out from the Stripe `CUSTOMER.customer_name` and `CUSTOMER.shipping_name` fields.
 
 ```yml
@@ -56,6 +68,7 @@ By default, the package will perform identity matching based on:
 - phone number
 - physical address
 - individual name (fuzzy matching)
+  - organization name is used instead if the `customer360_grain_<source>` variable is set to `organization`.
 
 This heuristic on its own, however, may not offer a high match rate. You may have an interanl ID, such as a product app ID or a third-party tool's ID (ie Salesforce Account ID), that can be leveraged for resolving identities.
 

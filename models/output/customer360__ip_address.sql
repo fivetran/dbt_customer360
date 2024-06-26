@@ -15,6 +15,8 @@ final as (
 
     select 
         customer360_id,
+        customer360_organization_id,
+        is_organization_header,
         ip_address,
         case 
             when ip_address like '%:%' then 'ipv6'

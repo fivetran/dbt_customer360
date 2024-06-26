@@ -112,6 +112,8 @@ unioned as (
 
     select 
         mapping.customer360_id,
+        mapping.customer360_organization_id,
+        mapping.is_organization_header,
         marketo_address.address_line_1,
         marketo_address.address_line_2,
         marketo_address.city,
@@ -134,6 +136,8 @@ unioned as (
 
     select 
         mapping.customer360_id,
+        mapping.customer360_organization_id,
+        mapping.is_organization_header,
         stripe_address.address_line_1,
         stripe_address.address_line_2,
         stripe_address.city,
@@ -157,6 +161,8 @@ rank_value_confidence as (
 
     select
         customer360_id,
+        customer360_organization_id,
+        is_organization_header,
         address_line_1,
         address_line_2,
         city,
@@ -168,8 +174,8 @@ rank_value_confidence as (
         postal_code,
         type,
         source,
-        count(*) over (partition by customer360_id, address_line_1, address_line_2, city, state_long, country_long, postal_code) as value_count,
-        max(coalesce(updated_at, created_at)) over (partition by customer360_id, address_line_1, address_line_2, city, state_long, country_long, postal_code) as value_last_updated_at
+        count(*) over (partition by case when is_organization_header then customer360_organization_id else customer360_id end, address_line_1, address_line_2, city, state_long, country_long, postal_code) as value_count,
+        max(coalesce(updated_at, created_at)) over (partition by case when is_organization_header then customer360_organization_id else customer360_id end, address_line_1, address_line_2, city, state_long, country_long, postal_code) as value_last_updated_at
 
     from unioned
 ),
@@ -178,6 +184,8 @@ final as (
 
     select
         customer360_id,
+        customer360_organization_id,
+        is_organization_header,
         address_line_1,
         address_line_2,
         city,
@@ -187,12 +195,11 @@ final as (
         postal_code,
         type,
         source,
-        dense_rank() over (partition by customer360_id order by value_count desc, coalesce(value_last_updated_at, '1970-01-01') desc, (case when type = 'inferred' then 1 else 0 end) asc) as confidence_rank,
-        row_number() over (partition by customer360_id order by value_count desc, coalesce(value_last_updated_at, '1970-01-01') desc, (case when type = 'inferred' then 1 else 0 end) asc) as index
+        dense_rank() over (partition by case when is_organization_header then customer360_organization_id else customer360_id end order by value_count desc, coalesce(value_last_updated_at, '1970-01-01') desc, (case when type = 'inferred' then 1 else 0 end) asc) as confidence_rank,
+        row_number() over (partition by case when is_organization_header then customer360_organization_id else customer360_id end order by value_count desc, coalesce(value_last_updated_at, '1970-01-01') desc, (case when type = 'inferred' then 1 else 0 end) asc) as index
 
     from rank_value_confidence
 )
 
 select * 
 from final
-
