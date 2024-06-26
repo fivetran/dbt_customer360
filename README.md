@@ -20,9 +20,9 @@ What is a customer? The lowest grain of individuality (ie individual vs company)
 - Stripe
 - Zendesk
 
-The package will insert an organization-level header row for easier aggregations across grains (`is_organization_header=true`).
+Each record where `is_organization_header=False` will represent an Individual (otherwise the most granular level of data present). The package will also insert an organization-level header row for easier aggregations across grains (`is_organization_header=true`) for proper aggregations and flexibility. These will all share the same `customer360_organization_id` but each have a unique `customer360_id`.
 
-> Note: If you are a b2c organization, your source Stripe customer data (and potentially Marketo) may only exist at the organizational level, while other sources (Zendesk and likely Marketo) typically provide customer data at the individual level. Given this many:1 relationship, individual customers from one source may map onto multiple records in the Customer360 output models.
+> Note: If you are a b2c organization, your source Stripe customer data (and potentially Marketo) may only exist at the organizational level, while other sources (Zendesk and likely Marketo) typically provide customer data at the individual level. See the "Grain of Source Data" section below.
 
 The exact tables:
 - `customer360__mapping`: Complete mapping of customer IDs from Marketo, Zendesk, and Stripe onto each other.
@@ -35,7 +35,8 @@ The exact tables:
   - `customer360__ip_address`
   - `customer360_status`
   - `customer360__updates`
-- A summary table surfacing the most "confident" values from above: `customer360__summary`.
+- A summary table surfacing the most "confident" values (chosen from recency and frequency) from above: `customer360__summary`.
+- A customer table aggregating all metrics from Stripe, Marketo, and Zendesk.
 
 ## Variables
 ### Grain of Source Data
