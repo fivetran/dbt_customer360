@@ -8,6 +8,8 @@ unioned as (
 
     select 
         customer360_id,
+        customer360_organization_id,
+        is_organization_header,
         marketo_created_at as created_at,
         marketo_updated_at as updated_at,
         'customer' as type,
@@ -20,6 +22,8 @@ unioned as (
 
     select 
         customer360_id,
+        customer360_organization_id,
+        is_organization_header,
         stripe_created_at as created_at,
         stripe_updated_at as updated_at,
         'customer' as type,
@@ -32,6 +36,8 @@ unioned as (
 
     select 
         mapping.customer360_id,
+        mapping.customer360_organization_id,
+        mapping.is_organization_header,
         zendesk_created_at,
         mapping.zendesk_updated_at as updated_at,
         'customer' as type,
@@ -43,6 +49,8 @@ unioned as (
 
     select 
         mapping.customer360_id,
+        mapping.customer360_organization_id,
+        mapping.is_organization_header,
         zendesk_organization_created_at as created_at,
         zendesk_organization_updated_at as updated_at,
         'organization' as type,

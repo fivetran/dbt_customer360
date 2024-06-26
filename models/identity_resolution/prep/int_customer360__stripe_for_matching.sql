@@ -6,6 +6,8 @@ with stripe as (
         customer_id,
         lower(customer_name_clean) as customer_name_clean,
         lower(shipping_name_clean) as shipping_name_clean,
+        lower(customer_organization_name_no_suffix) as customer_organization_name_no_suffix,
+        lower(shipping_organization_name_no_suffix) as shipping_organization_name_no_suffix,
         email,
         phone,
         shipping_phone,
@@ -49,7 +51,8 @@ stripe_matching as (
             {{ match_set.name }} is not null or
         {%- endfor %}
     {% endif %}
-    ((coalesce(customer_name_clean, shipping_name_clean) is not null or email is not null)
+    (( {{ 'coalesce(customer_organization_name_no_suffix, shipping_organization_name_no_suffix)' if var('customer360_grain_stripe', 'individual') == 'organization' else 'coalesce(customer_name_clean, shipping_name_clean)' }}  is not null or email is not null) -- todo: figure out how to include customer grain
+    
     and (
         email is not null 
         or coalesce(phone, shipping_phone) is not null
@@ -74,6 +77,8 @@ final as (
         customer_id,
         customer_name_clean,
         shipping_name_clean,
+        customer_organization_name_no_suffix,
+        shipping_organization_name_no_suffix,
         coalesce(email, 'null_stripe') as email,
         coalesce(phone, 'null_stripe') as phone,
         coalesce(shipping_phone, 'null_stripe') as shipping_phone,

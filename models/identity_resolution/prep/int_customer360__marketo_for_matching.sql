@@ -5,6 +5,8 @@ with marketo as (
     select 
         lead_id,
         lower(full_name_clean) as full_name_clean,
+        lower(organization_name_no_suffix) as organization_name_no_suffix,
+        lower(inferred_organization_name_no_suffix) as inferred_organization_name_no_suffix,
         email,
         phone,
         company_phone,
@@ -47,7 +49,8 @@ marketo_matching as (
             {{ match_set.name }} is not null or
         {%- endfor %}
     {% endif %}
-    ((full_name_clean is not null or email is not null)
+
+    (( {{ 'coalesce(organization_name_no_suffix, inferred_organization_name_no_suffix)' if var('customer360_grain_marketo', 'individual') == 'organization' else 'full_name_clean' }}  is not null or email is not null) -- todo: figure out how to include customer grain
     and (
         email is not null 
         or coalesce(phone, company_phone, mobile_phone) is not null
@@ -71,6 +74,8 @@ final as (
     select
         lead_id,
         full_name_clean,
+        organization_name_no_suffix,
+        inferred_organization_name_no_suffix,
         coalesce(email, 'null_marketo') as email,
         coalesce(phone, 'null_marketo') as phone,
         coalesce(company_phone, 'null_marketo') as company_phone,

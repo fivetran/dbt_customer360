@@ -36,8 +36,9 @@ The exact tables:
 - A summary table surfacing the most "confident" values from above: `customer360__summary`.
 
 ## Variables
+### Grain of Source Data
 
-### Stripe name configs
+### Stripe Individual-Name Configs
 Stripe doesn't have distinct name fields for individuals vs organizations. If you store both the indvidual and the company name, and in a consistent enforced format, use the below variables to tell the package how to parse them out from the Stripe `CUSTOMER.customer_name` and `CUSTOMER.shipping_name` fields.
 
 ```yml
@@ -56,6 +57,7 @@ By default, the package will perform identity matching based on:
 - phone number
 - physical address
 - individual name (fuzzy matching)
+  - organization name is used instead if the `customer360_grain_<source>` variable is set to `organization`.
 
 This heuristic on its own, however, may not offer a high match rate. You may have an interanl ID, such as a product app ID or a third-party tool's ID (ie Salesforce Account ID), that can be leveraged for resolving identities.
 

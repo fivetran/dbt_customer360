@@ -1,21 +1,15 @@
 packages:
   - package: fivetran/marketo
     version: [">=0.11.0","<0.12.0"]
-  # - package: fivetran/stripe
-  #   version: [">=0.12.0","<0.13.0"]
-  # - package: fivetran/zendesk
-  #   version: [">=0.14.0","<0.15.0"]
-  
-  # - local: ../../Finance/Stripe/dbt_stripe
-  # - local: ../../Zendesk/dbt_zendesk
-  # - local: ../../Marketing/Marketo/dbt_marketo
-
-  # - git: https://github.com/fivetran/dbt_marketo.git
-  #   revision: update/customer360
-  #   warn-unpinned: false
   - git: https://github.com/fivetran/dbt_zendesk.git
     revision: poc/customer360
     warn-unpinned: false
   - git: https://github.com/fivetran/dbt_stripe.git
     revision: poc/customer360
     warn-unpinned: false
+  # no git branch needed for marketo
+  
+  ## dev
+  # - local: ../../Finance/Stripe/dbt_stripe
+  # - local: ../../Zendesk/dbt_zendesk
+  # - local: ../../Marketing/Marketo/dbt_marketo

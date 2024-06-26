@@ -29,6 +29,8 @@ unioned as (
 
     select 
         mapping.customer360_id,
+        mapping.customer360_organization_id,
+        mapping.is_organization_header,
         marketo.email,
         'marketo' as source,
         marketo_updated_at as updated_at,
@@ -42,6 +44,8 @@ unioned as (
 
     select 
         mapping.customer360_id,
+        mapping.customer360_organization_id,
+        mapping.is_organization_header,
         stripe.email,
         'stripe' as source,
         stripe_updated_at as updated_at,
@@ -55,6 +59,8 @@ unioned as (
 
     select 
         mapping.customer360_id,
+        mapping.customer360_organization_id,
+        mapping.is_organization_header,
         zendesk.email,
         'zendesk' as source,
         zendesk_updated_at as updated_at,
@@ -69,6 +75,8 @@ rank_value_confidence as (
 
     select
         customer360_id,
+        customer360_organization_id,
+        is_organization_header,
         email,
         source,
         count(*) over (partition by customer360_id, email) as value_count,
@@ -81,6 +89,8 @@ final as (
 
     select
         customer360_id,
+        customer360_organization_id,
+        is_organization_header,
         email,
         source,
         dense_rank() over (partition by customer360_id order by value_count desc, coalesce(value_last_updated_at, '1970-01-01') desc) as confidence_rank,

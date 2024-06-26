@@ -28,13 +28,17 @@ marketo_join_stripe as (
         marketo.full_name_clean as marketo_full_name,
         stripe.customer_name_clean as stripe_full_customer_name,
         stripe.shipping_name_clean as stripe_full_shipping_name,
+        marketo.organization_name_no_suffix as marketo_organization_name,
+        marketo.inferred_organization_name_no_suffix as marketo_inferred_organization_name,
+        stripe.customer_organization_name_no_suffix as stripe_customer_organization_name,
+        stripe.shipping_organization_name_no_suffix as stripe_shipping_organization_name,
         marketo.updated_at as marketo_updated_at,
         stripe.updated_at as stripe_updated_at,
         marketo.created_at as marketo_created_at,
         stripe.created_at as stripe_created_at
 
-        {%- if var('customer360_internal_match_ids') %}
-            {%- for match_set in var('customer360_internal_match_ids') %}
+        {%- if var('customer360_internal_match_ids', []) != [] %}
+            {%- for match_set in var('customer360_internal_match_ids', []) %}
             , case when marketo.{{ match_set.name }} = 'null_marketo' then null else marketo.{{ match_set.name }} end as marketo_{{ match_set.name }}
             , case when stripe.{{ match_set.name }}  = 'null_stripe' then null else stripe.{{ match_set.name }} end as stripe_{{ match_set.name }}
 
@@ -45,8 +49,8 @@ marketo_join_stripe as (
 
     from marketo join stripe
     on
-        {%- if var('customer360_internal_match_ids') %}
-            {%- for match_set in var('customer360_internal_match_ids') %}
+        {%- if var('customer360_internal_match_ids', []) != [] %}
+            {%- for match_set in var('customer360_internal_match_ids', []) %}
             marketo.{{ match_set.name }} = stripe.{{ match_set.name }} or
             {%- endfor %}
         {% endif %}
@@ -112,17 +116,26 @@ marketo_stripe_filtered as (
     select *
     from marketo_join_stripe
     where
-        {%- if var('customer360_internal_match_ids') %}
-            {%- for match_set in var('customer360_internal_match_ids') %}
-                {%- if match_set.customer_grain == 'individual' %}
+        {% if var('customer360_internal_match_ids', []) != [] %}
+            {%- for match_set in var('customer360_internal_match_ids', []) %}
+                {%- if match_set.customer_grain == 'individual' or var('customer360_grain_stripe', 'individual') == 'organization' or var('customer360_grain_marketo', 'individual') == 'organization' %}
                     marketo_{{ match_set.name }} = stripe_{{ match_set.name }} or 
                 {% endif -%}
             {%- endfor %}
         {% endif -%}
         
+        {# we'll also use these in the marketo_zendesk_filtered and stripe_zendesk_filtered CTEs #}
+        {% set marketo_names = ['marketo_organization_name', 'marketo_inferred_organization_name'] if var('customer360_grain_marketo', 'individual') == 'organization' else ['marketo_full_name'] %}
+        {% set stripe_names = ['stripe_customer_organization_name', 'stripe_shipping_organization_name'] if var('customer360_grain_stripe', 'individual') == 'organization' else ['stripe_full_customer_name', 'stripe_full_shipping_name'] %}
+
         marketo_email = stripe_email
-        or {{ levenshtein_distance("coalesce(lower(marketo_full_name), 'aaa')", "coalesce(lower(stripe_full_customer_name), 'bbb')") }} >= .95
-        or {{ levenshtein_distance("coalesce(lower(marketo_full_name), 'aaa')", "coalesce(lower(stripe_full_shipping_name), 'bbb')") }} >= .95
+        {# we want to compare each marketo name to each stripe one #}
+        {% for marketo_name in marketo_names %}
+            {% for stripe_name in stripe_names %}
+                {# coalesce to completely different strings to avoid false positives #}
+                or {{ levenshtein_distance("coalesce(lower(" ~ marketo_name ~ "), 'aaa')", "coalesce(lower(" ~ stripe_name ~ "), 'bbb')") }} >= .95
+            {% endfor %}
+        {% endfor %}
 ),
 
 marketo_join_zendesk as (
@@ -134,6 +147,10 @@ marketo_join_zendesk as (
         zendesk.email as zendesk_email,
         marketo.full_name_clean as marketo_full_name,
         zendesk.full_name_clean as zendesk_full_name,
+        marketo.organization_name_no_suffix as marketo_organization_name,
+        marketo.inferred_organization_name_no_suffix as marketo_inferred_organization_name,
+        zendesk.organization_name_no_suffix as zendesk_organization_name,
+        zendesk.organization_id as zendesk_organization_id,
         marketo.updated_at as marketo_updated_at,
         zendesk.updated_at as zendesk_updated_at,
         zendesk.organization_updated_at as zendesk_organization_updated_at,
@@ -141,8 +158,8 @@ marketo_join_zendesk as (
         zendesk.created_at as zendesk_created_at,
         zendesk.organization_created_at as zendesk_organization_created_at
 
-        {%- if var('customer360_internal_match_ids') %}
-            {%- for match_set in var('customer360_internal_match_ids') %}
+        {%- if var('customer360_internal_match_ids', []) != [] %}
+            {%- for match_set in var('customer360_internal_match_ids', []) %}
             , case when marketo.{{ match_set.name }} = 'null_marketo' then null else marketo.{{ match_set.name }} end as marketo_{{ match_set.name }}
             , case when zendesk.{{ match_set.name }} = 'null_zendesk' then null else zendesk.{{ match_set.name }} end as zendesk_{{ match_set.name }}
             {%- endfor %}
@@ -150,8 +167,8 @@ marketo_join_zendesk as (
 
     from marketo join zendesk
     on 
-        {%- if var('customer360_internal_match_ids') %}
-            {%- for match_set in var('customer360_internal_match_ids') %}
+        {%- if var('customer360_internal_match_ids', []) != [] %}
+            {%- for match_set in var('customer360_internal_match_ids', []) %}
             marketo.{{ match_set.name }} = zendesk.{{ match_set.name }} or
             {%- endfor %}
         {% endif %}
@@ -169,21 +186,28 @@ marketo_join_zendesk as (
 marketo_zendesk_filtered as (
 
     select 
-        *,
-        {{ levenshtein_distance("coalesce(lower(marketo_full_name), 'aaa')", "coalesce(lower(zendesk_full_name), 'bbb')") }}
+        *
     from marketo_join_zendesk
     where
-        {%- if var('customer360_internal_match_ids') %}
-            {%- for match_set in var('customer360_internal_match_ids') %}
-                {%- if match_set.customer_grain == 'individual' %}
+        {% if var('customer360_internal_match_ids', []) != [] %}
+            {%- for match_set in var('customer360_internal_match_ids', []) %}
+                {%- if match_set.customer_grain == 'individual' or var('customer360_grain_stripe', 'individual') == 'organization' or var('customer360_grain_marketo', 'individual') == 'organization' %}
                 marketo_{{ match_set.name }} = zendesk_{{ match_set.name }} or 
                 {% endif -%}
             {%- endfor %}
         {% endif -%}
 
+        {% set zendesk_names = ['zendesk_organization_name'] if var('customer360_grain_zendesk', 'individual') == 'organization' else ['zendesk_full_name'] %}
+        {# we already set marketo_names in marketo_stripe_filtered CTE #}
+
         marketo_email = zendesk_email
-        or {{ levenshtein_distance("coalesce(lower(marketo_full_name), 'aaa')", "coalesce(lower(zendesk_full_name), 'bbb')") }} >= .95 
-        
+        {# we want to compare each marketo name to the zendesk name #}
+        {% for marketo_name in marketo_names %}
+            {% for zendesk_name in zendesk_names %}
+                {# coalesce to completely different strings to avoid false positives #}
+                or {{ levenshtein_distance("coalesce(lower(" ~ marketo_name ~ "), 'aaa')", "coalesce(lower(" ~ zendesk_name ~ "), 'bbb')") }} >= .95
+            {% endfor %}
+        {% endfor %}
 ),
 
 stripe_join_zendesk as (
@@ -196,14 +220,18 @@ stripe_join_zendesk as (
         stripe.customer_name_clean as stripe_full_customer_name,
         stripe.shipping_name_clean as stripe_full_shipping_name,
         zendesk.full_name_clean as zendesk_full_name,
+        stripe.customer_organization_name_no_suffix as stripe_customer_organization_name,
+        stripe.shipping_organization_name_no_suffix as stripe_shipping_organization_name,
+        zendesk.organization_name_no_suffix as zendesk_organization_name,
+        zendesk.organization_id as zendesk_organization_id,
         stripe.updated_at as stripe_updated_at,
         zendesk.updated_at as zendesk_updated_at,
         zendesk.organization_updated_at as zendesk_organization_updated_at,
         stripe.created_at as stripe_created_at,
         zendesk.created_at as zendesk_created_at,
         zendesk.organization_created_at as zendesk_organization_created_at
-        {%- if var('customer360_internal_match_ids') %}
-            {%- for match_set in var('customer360_internal_match_ids') %}
+        {% if var('customer360_internal_match_ids', []) != [] %}
+            {%- for match_set in var('customer360_internal_match_ids', []) %}
             , case when stripe.{{ match_set.name }} = 'null_stripe' then null else stripe.{{ match_set.name }} end as stripe_{{ match_set.name }}
             , case when zendesk.{{ match_set.name }} = 'null_zendesk' then null else zendesk.{{ match_set.name }} end as zendesk_{{ match_set.name }}
             {%- endfor %}
@@ -212,8 +240,8 @@ stripe_join_zendesk as (
     from stripe
     join zendesk
     on 
-        {%- if var('customer360_internal_match_ids') %}
-            {%- for match_set in var('customer360_internal_match_ids') %}
+        {%- if var('customer360_internal_match_ids', []) != [] %}
+            {%- for match_set in var('customer360_internal_match_ids', []) %}
             stripe.{{ match_set.name }} = zendesk.{{ match_set.name }} or
             {%- endfor %}
         {% endif %}
@@ -233,18 +261,22 @@ stripe_zendesk_filtered as (
     select *
     from stripe_join_zendesk
     where
-        {%- if var('customer360_internal_match_ids') %}
-            {%- for match_set in var('customer360_internal_match_ids') %}
-                {%- if match_set.customer_grain == 'individual' %}
-                stripe_{{ match_set.name }} = zendesk_{{ match_set.name }}
+        {% if var('customer360_internal_match_ids', []) != [] %}
+            {%- for match_set in var('customer360_internal_match_ids', []) %}
+                {%- if match_set.customer_grain == 'individual' or var('customer360_grain_stripe', 'individual') == 'organization' or var('customer360_grain_marketo', 'individual') == 'organization' %}
+                stripe_{{ match_set.name }} = zendesk_{{ match_set.name }} or
                 {% endif -%}
             {%- endfor %}
         {% endif -%}
         
         stripe_email = zendesk_email
-        or {{ levenshtein_distance("coalesce(lower(zendesk_full_name), 'aaa')", "coalesce(lower(stripe_full_customer_name), 'bbb')") }} >= .95
-        or {{ levenshtein_distance("coalesce(lower(zendesk_full_name), 'aaa')", "coalesce(lower(stripe_full_shipping_name), 'bbb')") }} >= .95
-        
+        {# we want to compare each zendesk name to each stripe one #}
+        {% for zendesk_name in zendesk_names %}
+            {% for stripe_name in stripe_names %}
+                {# coalesce to completely different strings to avoid false positives #}
+                or {{ levenshtein_distance("coalesce(lower(" ~ zendesk_name ~ "), 'aaa')", "coalesce(lower(" ~ stripe_name ~ "), 'bbb')") }} >= .95
+            {% endfor %}
+        {% endfor %}
 ),
 
 combine_joins as (
@@ -254,43 +286,51 @@ combine_joins as (
         coalesce(marketo_stripe_filtered.stripe_customer_id, stripe_zendesk_filtered_join_stripe.stripe_customer_id, stripe_zendesk_filtered_join_zendesk.stripe_customer_id) as stripe_customer_id,
         coalesce(marketo_zendesk_filtered.zendesk_user_id, stripe_zendesk_filtered_join_zendesk.zendesk_user_id, stripe_zendesk_filtered_join_stripe.zendesk_user_id) as zendesk_user_id,
 
-        {%- if var('customer360_internal_match_ids') %}
-            {%- for match_set in var('customer360_internal_match_ids') %}
-            coalesce(marketo_stripe_filtered.marketo_{{ match_set.name }}, marketo_stripe_filtered.stripe_{{ match_set.name }}, 
-                marketo_zendesk_filtered.marketo_{{ match_set.name }}, marketo_zendesk_filtered.zendesk_{{ match_set.name }}, 
+        {%- if var('customer360_internal_match_ids', []) != [] %}
+            {%- for match_set in var('customer360_internal_match_ids', []) %}
+            coalesce(marketo_zendesk_filtered.zendesk_{{ match_set.name }}, marketo_zendesk_filtered.marketo_{{ match_set.name }}, 
+                marketo_stripe_filtered.marketo_{{ match_set.name }}, marketo_stripe_filtered.stripe_{{ match_set.name }}, 
                 stripe_zendesk_filtered_join_stripe.stripe_{{ match_set.name }}, stripe_zendesk_filtered_join_stripe.zendesk_{{ match_set.name }}, 
                 stripe_zendesk_filtered_join_zendesk.stripe_{{ match_set.name }}, stripe_zendesk_filtered_join_zendesk.zendesk_{{ match_set.name }}
                 ) as {{ match_set.name }},
             {%- endfor %}
         {% endif %}
 
-        coalesce(marketo_stripe_filtered.marketo_email, marketo_zendesk_filtered.marketo_email) as marketo_email,
+        {# coalesce(marketo_zendesk_filtered.marketo_email, marketo_stripe_filtered.marketo_email) as marketo_email,
         coalesce(marketo_stripe_filtered.stripe_email, stripe_zendesk_filtered_join_stripe.stripe_email, stripe_zendesk_filtered_join_zendesk.stripe_email) as stripe_email,
         coalesce(marketo_zendesk_filtered.zendesk_email, stripe_zendesk_filtered_join_zendesk.zendesk_email, stripe_zendesk_filtered_join_stripe.zendesk_email) as zendesk_email,
 
-        coalesce(marketo_stripe_filtered.marketo_full_name, marketo_zendesk_filtered.marketo_full_name) as marketo_full_name,
+        coalesce(marketo_zendesk_filtered.marketo_full_name, marketo_stripe_filtered.marketo_full_name) as marketo_full_name,
         coalesce(marketo_stripe_filtered.stripe_full_customer_name, stripe_zendesk_filtered_join_stripe.stripe_full_customer_name, stripe_zendesk_filtered_join_zendesk.stripe_full_customer_name) as stripe_full_customer_name,
         coalesce(marketo_stripe_filtered.stripe_full_shipping_name, stripe_zendesk_filtered_join_stripe.stripe_full_shipping_name, stripe_zendesk_filtered_join_zendesk.stripe_full_shipping_name) as stripe_full_shipping_name,
-        coalesce(marketo_zendesk_filtered.zendesk_full_name, stripe_zendesk_filtered_join_zendesk.zendesk_full_name, stripe_zendesk_filtered_join_stripe.zendesk_full_name) as zendesk_full_name,
+        coalesce(marketo_zendesk_filtered.zendesk_full_name, stripe_zendesk_filtered_join_zendesk.zendesk_full_name, stripe_zendesk_filtered_join_stripe.zendesk_full_name) as zendesk_full_name, #}
 
-        max(coalesce(marketo_stripe_filtered.marketo_updated_at, marketo_zendesk_filtered.marketo_updated_at)) as marketo_updated_at,
+        {# coalesce(marketo_zendesk_filtered.marketo_organization_name, marketo_stripe_filtered.marketo_organization_name) as marketo_organization_name,
+        coalesce(marketo_zendesk_filtered.marketo_inferred_organization_name, marketo_stripe_filtered.marketo_inferred_organization_name) as marketo_inferred_organization_name,
+        coalesce(marketo_stripe_filtered.stripe_customer_organization_name, stripe_zendesk_filtered_join_stripe.stripe_customer_organization_name, stripe_zendesk_filtered_join_zendesk.stripe_customer_organization_name) as stripe_customer_organization_name,
+        coalesce(marketo_stripe_filtered.stripe_shipping_organization_name, stripe_zendesk_filtered_join_stripe.stripe_shipping_organization_name, stripe_zendesk_filtered_join_zendesk.stripe_shipping_organization_name) as stripe_shipping_organization_name,
+        coalesce(marketo_zendesk_filtered.zendesk_organization_name, stripe_zendesk_filtered_join_zendesk.zendesk_organization_name, stripe_zendesk_filtered_join_stripe.zendesk_organization_name) as zendesk_organization_name,
+        coalesce(marketo_zendesk_filtered.zendesk_organization_id, stripe_zendesk_filtered_join_zendesk.zendesk_organization_id, stripe_zendesk_filtered_join_stripe.zendesk_organization_id) as zendesk_organization_id, #}
+
+
+        max(coalesce(marketo_zendesk_filtered.marketo_updated_at, marketo_stripe_filtered.marketo_updated_at)) as marketo_updated_at,
         max(coalesce(marketo_stripe_filtered.stripe_updated_at, stripe_zendesk_filtered_join_stripe.stripe_updated_at, stripe_zendesk_filtered_join_zendesk.stripe_updated_at)) as stripe_updated_at,
         max(coalesce(marketo_zendesk_filtered.zendesk_updated_at, stripe_zendesk_filtered_join_zendesk.zendesk_updated_at, stripe_zendesk_filtered_join_stripe.zendesk_updated_at)) as zendesk_updated_at,
         max(coalesce(marketo_zendesk_filtered.zendesk_organization_updated_at, stripe_zendesk_filtered_join_zendesk.zendesk_organization_updated_at, stripe_zendesk_filtered_join_stripe.zendesk_organization_updated_at)) as zendesk_organization_updated_at,
-        max(coalesce(marketo_stripe_filtered.marketo_created_at, marketo_zendesk_filtered.marketo_created_at)) as marketo_created_at,
+        max(coalesce(marketo_zendesk_filtered.marketo_created_at, marketo_stripe_filtered.marketo_created_at)) as marketo_created_at,
         max(coalesce(marketo_stripe_filtered.stripe_created_at, stripe_zendesk_filtered_join_stripe.stripe_created_at, stripe_zendesk_filtered_join_zendesk.stripe_created_at)) as stripe_created_at,
         max(coalesce(marketo_zendesk_filtered.zendesk_created_at, stripe_zendesk_filtered_join_zendesk.zendesk_created_at, stripe_zendesk_filtered_join_stripe.zendesk_created_at)) as zendesk_created_at,
         max(coalesce(marketo_zendesk_filtered.zendesk_organization_created_at, stripe_zendesk_filtered_join_zendesk.zendesk_organization_created_at, stripe_zendesk_filtered_join_stripe.zendesk_organization_created_at)) as zendesk_organization_created_at
 
-    from marketo_stripe_filtered
-    full outer join marketo_zendesk_filtered 
+    from marketo_zendesk_filtered -- prioritize this because it'll be the lowest grain likely
+    full outer join  marketo_stripe_filtered 
         on marketo_stripe_filtered.marketo_lead_id = marketo_zendesk_filtered.marketo_lead_id
     full outer join stripe_zendesk_filtered as stripe_zendesk_filtered_join_stripe
         on marketo_stripe_filtered.stripe_customer_id = stripe_zendesk_filtered_join_stripe.stripe_customer_id
     left join stripe_zendesk_filtered as stripe_zendesk_filtered_join_zendesk
         on marketo_zendesk_filtered.zendesk_user_id = stripe_zendesk_filtered_join_zendesk.zendesk_user_id
 
-    {{ dbt_utils.group_by(n=10 + match_id_list|length) }}
+    {{ dbt_utils.group_by(n=3 + match_id_list|length) }}
 )
 
 select * 

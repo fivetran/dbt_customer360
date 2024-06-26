@@ -66,6 +66,8 @@ unioned as (
 
     select 
         mapping.customer360_id,
+        mapping.customer360_organization_id,
+        mapping.is_organization_header,
         marketo_org_names.organization_name,
         marketo_org_names.type,
         'marketo' as source,
@@ -80,6 +82,8 @@ unioned as (
 
     select 
         mapping.customer360_id,
+        mapping.customer360_organization_id,
+        mapping.is_organization_header,
         stripe_org_names.organization_name,
         stripe_org_names.type,
         'stripe' as source,
@@ -94,6 +98,8 @@ unioned as (
 
     select 
         mapping.customer360_id,
+        mapping.customer360_organization_id,
+        mapping.is_organization_header,
         zendesk.organization_name,
         'primary' as type,
         'zendesk' as source,
@@ -109,6 +115,8 @@ rank_value_confidence as (
 
     select
         customer360_id,
+        customer360_organization_id,
+        is_organization_header,
         organization_name,
         type,
         source,
@@ -122,6 +130,8 @@ final as (
 
     select
         customer360_id,
+        customer360_organization_id,
+        is_organization_header,
         organization_name,
         type,
         source,

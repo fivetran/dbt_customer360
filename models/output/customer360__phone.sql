@@ -89,6 +89,8 @@ unioned as (
 
     select 
         mapping.customer360_id,
+        mapping.customer360_organization_id,
+        mapping.is_organization_header,
         marketo_phones.phone,
         marketo_phones.extension,
         marketo_phones.type,
@@ -104,6 +106,8 @@ unioned as (
 
     select 
         mapping.customer360_id,
+        mapping.customer360_organization_id,
+        mapping.is_organization_header,
         stripe_phones.phone,
         stripe_phones.extension,
         stripe_phones.type,
@@ -119,6 +123,8 @@ unioned as (
 
     select 
         mapping.customer360_id,
+        mapping.customer360_organization_id,
+        mapping.is_organization_header,
         zendesk_phones.phone,
         zendesk_phones.extension,
         zendesk_phones.type,
@@ -135,6 +141,8 @@ rank_value_confidence as (
 
     select
         customer360_id,
+        customer360_organization_id,
+        is_organization_header,
         phone,
         extension,
         type,
@@ -149,6 +157,8 @@ final as (
 
     select
         customer360_id,
+        customer360_organization_id,
+        is_organization_header,
         phone,
         extension,
         type,

@@ -26,6 +26,8 @@ marketo_status as (
 
     select 
         mapping.customer360_id,
+        mapping.customer360_organization_id,
+        mapping.is_organization_header,
         'unsubscribed' as status,
         'marketo' as source
 
@@ -38,6 +40,8 @@ marketo_status as (
 
     select 
         mapping.customer360_id,
+        mapping.customer360_organization_id,
+        mapping.is_organization_header,
         'email invalid' as status,
         'marketo' as source
 
@@ -50,6 +54,8 @@ marketo_status as (
 
     select 
         mapping.customer360_id,
+        mapping.customer360_organization_id,
+        mapping.is_organization_header,
         'do not call' as status,
         'marketo' as source
 
@@ -63,6 +69,8 @@ stripe_status as (
 
     select 
         mapping.customer360_id,
+        mapping.customer360_organization_id,
+        mapping.is_organization_header,
         'delinquent' as status,
         'stripe' as source
 
@@ -75,6 +83,8 @@ stripe_status as (
     
     select 
         mapping.customer360_id,
+        mapping.customer360_organization_id,
+        mapping.is_organization_header,
         'deleted' as status,
         'stripe' as source
 
@@ -88,6 +98,8 @@ zendesk_status as (
 
     select 
         customer360_id,
+        mapping.customer360_organization_id,
+        mapping.is_organization_header,
         'deleted' as status,
         'zendesk' as source
 
@@ -100,6 +112,8 @@ zendesk_status as (
 
     select 
         mapping.customer360_id,
+        mapping.customer360_organization_id,
+        mapping.is_organization_header,
         'suspended' as status,
         'zendesk' as source
 
@@ -113,6 +127,8 @@ unioned as (
 
     select 
         customer360_id,
+        customer360_organization_id,
+        is_organization_header,
         status,
         source
 
@@ -122,6 +138,8 @@ unioned as (
 
     select 
         customer360_id,
+        customer360_organization_id,
+        is_organization_header,
         status,
         source
 
@@ -131,6 +149,8 @@ unioned as (
 
     select 
         customer360_id,
+        customer360_organization_id,
+        is_organization_header,
         status,
         source
 

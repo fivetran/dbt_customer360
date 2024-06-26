@@ -110,6 +110,9 @@ joined as (
 
     select 
         mapping.customer360_id,
+        mapping.source_ids,
+        mapping.customer360_organization_id,
+        mapping.is_organization_header,
         {%- if var('customer360_internal_match_ids') %}
             {%- for match_set in var('customer360_internal_match_ids') %}
                 mapping.{{ match_set.name }},

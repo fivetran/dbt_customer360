@@ -112,6 +112,8 @@ unioned as (
 
     select 
         mapping.customer360_id,
+        mapping.customer360_organization_id,
+        mapping.is_organization_header,
         marketo_address.address_line_1,
         marketo_address.address_line_2,
         marketo_address.city,
@@ -134,6 +136,8 @@ unioned as (
 
     select 
         mapping.customer360_id,
+        mapping.customer360_organization_id,
+        mapping.is_organization_header,
         stripe_address.address_line_1,
         stripe_address.address_line_2,
         stripe_address.city,
@@ -157,6 +161,8 @@ rank_value_confidence as (
 
     select
         customer360_id,
+        customer360_organization_id,
+        is_organization_header,
         address_line_1,
         address_line_2,
         city,
@@ -178,6 +184,8 @@ final as (
 
     select
         customer360_id,
+        customer360_organization_id,
+        is_organization_header,
         address_line_1,
         address_line_2,
         city,
@@ -195,4 +203,3 @@ final as (
 
 select * 
 from final
-
