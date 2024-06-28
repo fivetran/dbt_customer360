@@ -1,10 +1,10 @@
 # (WIP -- currently developing on BigQuery only) Customer360 Data Model
 
 ## How to run
-1. Add the following to your `packages.yml`:
+1. Add the following to your `packages.yml` and comment out any individual references to the Fivetran Stripe, Marketo, and Zendesk packages.
 ```yml
 packages:
-  - git: https://github.com/fivetran/dbt_customer360.git
+  - git: https://github.com/fivetran/dbt_customer360.git # this will install Stripe, Marketo, and Zendesk as dependencies
     revision: main
     warn-unpinned: false
 ```
