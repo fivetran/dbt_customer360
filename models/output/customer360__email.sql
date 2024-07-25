@@ -4,29 +4,35 @@ with mapping as (
     from {{ ref('customer360__mapping') }}
 ),
 
+{% if var('customer360__using_marketo', true) %}
 marketo as (
 
     select *
     from {{ ref('int_customer360__marketo') }}
     where email is not null
 ),
+{% endif %}
 
+{% if var('customer360__using_stripe', true) %}
 stripe as (
 
     select *
     from {{ ref('int_customer360__stripe') }}
     where email is not null
 ),
+{% endif %}
 
+{% if var('customer360__using_zendesk', true) %}
 zendesk as (
 
     select *
     from {{ ref('int_customer360__zendesk') }}
     where email is not null
 ),
+{% endif %}
 
 unioned as (
-
+{% if var('customer360__using_marketo', true) %}
     select 
         mapping.customer360_id,
         mapping.customer360_organization_id,
@@ -39,8 +45,12 @@ unioned as (
     from mapping
     join marketo
         on mapping.marketo_lead_id = marketo.lead_id
+{% endif %}
 
+{% if var('customer360__using_stripe', true) %}
+    {% if var('customer360__using_marketo', true) %}
     union all
+    {% endif %}
 
     select 
         mapping.customer360_id,
@@ -54,7 +64,9 @@ unioned as (
     from mapping
     join stripe
         on mapping.stripe_customer_id = stripe.customer_id
+{% endif %}
 
+{% if var('customer360__using_zendesk', true) %}
     union all
 
     select 
@@ -69,6 +81,7 @@ unioned as (
     from mapping
     join zendesk
         on mapping.zendesk_user_id = zendesk.user_id
+{% endif %}
 ),
 
 rank_value_confidence as (

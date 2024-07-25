@@ -3,44 +3,27 @@ with mapping as (
     select * 
     from {{ ref('customer360__mapping') }}
 ),
-
+{% if var('customer360__using_marketo', true) %}
 marketo as (
 
     select *
     from {{ ref('int_customer360__marketo') }}
 ),
+{% endif %}
 
-stripe as (
-
-    select *
-    from {{ ref('int_customer360__stripe') }}
-),
-
+{% if var('customer360__using_zendesk', true) %}
 zendesk as (
 
     select *
     from {{ ref('int_customer360__zendesk') }}
 ),
+{% endif %}
 
-marketo_org_names as (
+{% if var('customer360__using_stripe', true) %}
+stripe as (
 
-    select
-        lead_id,
-        organization_name,
-        'primary' as type
-
-    from marketo
-    where organization_name is not null
-
-    union all 
-
-    select
-        lead_id,
-        inferred_organization_name as organization_name,
-        'inferred' as type
-
-    from marketo
-    where inferred_organization_name is not null
+    select *
+    from {{ ref('int_customer360__stripe') }}
 ),
 
 stripe_org_names as (
@@ -61,9 +44,34 @@ stripe_org_names as (
     from stripe
     where shipping_organization_name is not null
 ),
+{% endif %}
+
+{% if var('customer360__using_marketo', true) %}
+marketo_org_names as (
+
+    select
+        lead_id,
+        organization_name,
+        'primary' as type
+
+    from marketo
+    where organization_name is not null
+
+    union all 
+
+    select
+        lead_id,
+        inferred_organization_name as organization_name,
+        'inferred' as type
+
+    from marketo
+    where inferred_organization_name is not null
+),
+{% endif %}
 
 unioned as (
 
+{% if var('customer360__using_marketo', true) %}
     select 
         mapping.customer360_id,
         mapping.customer360_organization_id,
@@ -80,6 +88,8 @@ unioned as (
 
     union all
 
+{% endif %}
+{% if var('customer360__using_stripe', true) %}
     select 
         mapping.customer360_id,
         mapping.customer360_organization_id,
@@ -94,8 +104,12 @@ unioned as (
     join stripe_org_names
         on mapping.stripe_customer_id = stripe_org_names.customer_id
 
+    {% if var('customer360__using_zendesk', true) %}
     union all
+    {% endif%}
+{% endif %}
 
+{% if var('customer360__using_zendesk', true) %}
     select 
         mapping.customer360_id,
         mapping.customer360_organization_id,
@@ -109,6 +123,7 @@ unioned as (
     from mapping
     join zendesk
         on mapping.zendesk_user_id = zendesk.user_id
+{% endif %}
 ),
 
 rank_value_confidence as (

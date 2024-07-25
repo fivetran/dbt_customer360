@@ -3,9 +3,9 @@ with dimensions as (
         summary.customer360_id,
         mapping.customer360_organization_id,
         mapping.is_organization_header,
-        mapping.marketo_lead_id,
-        mapping.stripe_customer_id,
-        mapping.zendesk_user_id,
+        {%- if var('customer360__using_marketo', true) -%} mapping.marketo_lead_id,{%- endif -%}
+        {%- if var('customer360__using_stripe', true) -%} mapping.stripe_customer_id,{%- endif -%}
+        {%- if var('customer360__using_zendesk', true) -%} mapping.zendesk_user_id,{%- endif -%}
         mapping.source_ids,
         summary.email,
         summary.full_name,
@@ -17,7 +17,7 @@ with dimensions as (
         summary.country,
         summary.country_alt_name,
         summary.postal_code,
-        summary.ip_address,
+        {%- if var('customer360__using_marketo', true) -%} summary.ip_address,{%- endif -%}
         summary.phone
 
     from {{ ref('customer360__mapping') }} as mapping
@@ -25,6 +25,21 @@ with dimensions as (
         on mapping.customer360_id = summary.customer360_id
 ),
 
+{# dimensions as (
+
+    select *
+    from dimensions
+    where not is_organization_header
+),
+
+org_dims as (
+
+    select *
+    from dimensions
+    where is_organization_header
+), #}
+
+{% if var('customer360__using_stripe', true) %}
 stripe_metrics as (
     select 
         customer_id,
@@ -51,7 +66,9 @@ stripe_metrics as (
 
     from {{ ref('stripe__customer_overview') }}
 ),
+{% endif %}
 
+{% if var('customer360__using_marketo', true) %}
 marketo_metrics as (
     select 
         lead_id,
@@ -66,7 +83,9 @@ marketo_metrics as (
         
     from {{ ref('marketo__leads') }} 
 ),
+{% endif %}
 
+{% if var('customer360__using_zendesk', true) %}
 zendesk_metrics as (
     select 
         user_id,
@@ -93,10 +112,12 @@ zendesk_metrics as (
 
     from {{ ref('zendesk__customer_metrics') }} 
 ),
-
-combine_individuals as (
+{% endif %}
+combine_customers as (
     select 
-        individual_dims.*,
+        dimensions.*,
+
+    {% if var('customer360__using_marketo', true) %}
         sum(coalesce(count_sends, 0)) as marketo_count_sends,
         sum(coalesce(count_opens, 0)) as marketo_count_opens,
         sum(coalesce(count_bounces, 0)) as marketo_count_bounces,
@@ -105,7 +126,9 @@ combine_individuals as (
         sum(coalesce(count_unsubscribes, 0)) as marketo_count_unsubscribes,
         sum(coalesce(count_unique_opens, 0)) as marketo_count_unique_opens,
         sum(coalesce(count_unique_clicks, 0)) as marketo_count_unique_clicks,
+    {% endif %}
 
+    {% if var('customer360__using_stripe', true) %}
         min(stripe_metrics.first_sale_date) as stripe_first_sale_date,
         max(stripe_metrics.most_recent_sale_date) as stripe_most_recent_sale_date,
         sum(coalesce(stripe_metrics.total_sales, 0)) as stripe_total_sales,
@@ -126,7 +149,9 @@ combine_individuals as (
         sum(coalesce(stripe_metrics.total_failed_charge_amount, 0)) as stripe_total_failed_charge_amount,
         sum(coalesce(stripe_metrics.failed_charge_count_this_month, 0)) as stripe_failed_charge_count_this_month,
         sum(coalesce(stripe_metrics.failed_charge_amount_this_month, 0)) as stripe_failed_charge_amount_this_month,
+    {% endif %}
 
+    {% if var('customer360__using_zendesk', true) %}
         max(account_age_days) as zendesk_account_age_days,
         max(organization_account_age_days) as zendesk_organization_account_age_days,
         sum(coalesce(count_created_tickets, 0)) as zendesk_count_created_tickets,
@@ -148,23 +173,52 @@ combine_individuals as (
         , avg(avg_first_resolution_business_minutes) as zendesk_avg_first_resolution_business_minutes
         , avg(avg_full_resolution_business_minutes) as zendesk_avg_full_resolution_business_minutes
         {% endif %}
+    {% endif %}
 
-    from (select * from dimensions where not is_organization_header) as individual_dims
+    from dimensions
+
+    {% if var('customer360__using_marketo', true) %}
     left join marketo_metrics
-        on individual_dims.marketo_lead_id = marketo_metrics.lead_id
-    left join stripe_metrics
-        on individual_dims.stripe_customer_id = stripe_metrics.customer_id
-    left join zendesk_metrics
-        on individual_dims.zendesk_user_id = zendesk_metrics.user_id
+        on dimensions.marketo_lead_id = marketo_metrics.lead_id
+    {% endif %}
 
-    {{ dbt_utils.group_by(n=19) }}
+    {% if var('customer360__using_stripe', true) %}
+    left join stripe_metrics
+        on dimensions.stripe_customer_id = stripe_metrics.customer_id
+    {% endif %}
+
+    {% if var('customer360__using_zendesk', true) %}
+    left join zendesk_metrics
+        on dimensions.zendesk_user_id = zendesk_metrics.user_id
+    {% endif %}
+
+    {{ dbt_utils.group_by(n=15 + (2 if var('customer360__using_marketo', true) else 0) + (1 if var('customer360__using_stripe', true) else 0) + (1 if var('customer360__using_zendesk', true) else 0)) }}
 ),
 
 rollup_to_orgs as (
 
     select 
-        org_dims.*,
+        customer360_id,
+        customer360_organization_id,
+        is_organization_header,
+        {%- if var('customer360__using_marketo', true) -%} marketo_lead_id,{%- endif -%}
+        {%- if var('customer360__using_stripe', true) -%} stripe_customer_id,{%- endif -%}
+        {%- if var('customer360__using_zendesk', true) -%} zendesk_user_id,{%- endif -%}
+        source_ids,
+        email,
+        full_name,
+        organization_name,
+        address_line_1,
+        address_line_2,
+        city,
+        state,
+        country,
+        country_alt_name,
+        postal_code,
+        {%- if var('customer360__using_marketo', true) -%} ip_address,{%- endif -%}
+        phone,
 
+    {% if var('customer360__using_marketo', true) %}
         sum(coalesce(marketo_count_sends, 0)) as marketo_count_sends,
         sum(coalesce(marketo_count_opens, 0)) as marketo_count_opens,
         sum(coalesce(marketo_count_bounces, 0)) as marketo_count_bounces,
@@ -173,7 +227,9 @@ rollup_to_orgs as (
         sum(coalesce(marketo_count_unsubscribes, 0)) as marketo_count_unsubscribes,
         sum(coalesce(marketo_count_unique_opens, 0)) as marketo_count_unique_opens,
         sum(coalesce(marketo_count_unique_clicks, 0)) as marketo_count_unique_clicks,
+    {% endif %}
 
+    {% if var('customer360__using_stripe', true) %}
         min(stripe_first_sale_date) as stripe_first_sale_date,
         max(stripe_most_recent_sale_date) as stripe_most_recent_sale_date,
         sum(coalesce(stripe_total_sales, 0)) as stripe_total_sales,
@@ -194,7 +250,9 @@ rollup_to_orgs as (
         sum(coalesce(stripe_total_failed_charge_amount, 0)) as stripe_total_failed_charge_amount,
         sum(coalesce(stripe_failed_charge_count_this_month, 0)) as stripe_failed_charge_count_this_month,
         sum(coalesce(stripe_failed_charge_amount_this_month, 0)) as stripe_failed_charge_amount_this_month,
+    {% endif %}
 
+    {% if var('customer360__using_zendesk', true) %}
         max(zendesk_account_age_days) as zendesk_account_age_days,
         max(zendesk_organization_account_age_days) as zendesk_organization_account_age_days,
         sum(coalesce(zendesk_count_created_tickets, 0)) as zendesk_count_created_tickets,
@@ -203,6 +261,8 @@ rollup_to_orgs as (
         sum(coalesce(zendesk_count_reopened_tickets, 0)) as zendesk_count_reopened_tickets,
         sum(coalesce(zendesk_count_followup_tickets, 0)) as zendesk_count_followup_tickets,
         sum(coalesce(zendesk_count_first_contact_resolved_tickets, 0)) as zendesk_count_first_contact_resolved_tickets,
+
+        {# Average of individual-customer averages #}
         avg(zendesk_avg_ticket_priority) as zendesk_avg_ticket_priority,
         avg(zendesk_avg_first_reply_time_calendar_minutes) as zendesk_avg_first_reply_time_calendar_minutes,
         avg(zendesk_avg_first_resolution_calendar_minutes) as zendesk_avg_first_resolution_calendar_minutes,
@@ -215,17 +275,19 @@ rollup_to_orgs as (
         , avg(zendesk_avg_first_resolution_business_minutes) as zendesk_avg_first_resolution_business_minutes
         , avg(zendesk_avg_full_resolution_business_minutes) as zendesk_avg_full_resolution_business_minutes
         {% endif %}
+    {% endif %}
 
-    from combine_individuals
-    join (select * from dimensions where is_organization_header) as org_dims 
-        using(customer360_organization_id)
-    {{ dbt_utils.group_by(n=19) }}
+    from combine_customers
+    where is_organization_header
+
+    {{ dbt_utils.group_by(n=15 + (2 if var('customer360__using_marketo', true) else 0) + (1 if var('customer360__using_stripe', true) else 0) + (1 if var('customer360__using_zendesk', true) else 0)) }}
 ),
 
 final as (
 
     select *
-    from combine_individuals
+    from combine_customers
+    where not is_organization_header
 
     union all
 

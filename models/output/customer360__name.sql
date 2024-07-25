@@ -3,14 +3,25 @@ with mapping as (
     select * 
     from {{ ref('customer360__mapping') }}
 ),
-
+{% if var('customer360__using_marketo', true) %}
 marketo as (
 
     select *
     from {{ ref('int_customer360__marketo') }}
     where full_name_clean is not null
 ),
+{% endif %}
 
+{% if var('customer360__using_zendesk', true) %}
+zendesk as (
+
+    select *
+    from {{ ref('int_customer360__zendesk') }}
+    where full_name_clean is not null
+),
+{% endif %}
+
+{% if var('customer360__using_stripe', true) %}
 stripe as (
 
     select *
@@ -18,20 +29,11 @@ stripe as (
     where coalesce(customer_name_clean, shipping_name_clean) is not null
 ),
 
-zendesk as (
-
-    select *
-    from {{ ref('int_customer360__zendesk') }}
-    where full_name_clean is not null
-),
-
 stripe_names as (
 
     select 
         customer_id,
         customer_name_clean as full_name,
-        {# customer_name_title as title,
-        customer_name_suffix as suffix, #}
         'primary' as type
     from stripe
     where customer_name is not null
@@ -41,22 +43,20 @@ stripe_names as (
     select 
         customer_id,
         shipping_name_clean as full_name,
-        {# shipping_name_title as title,
-        shipping_name_suffix as suffix, #}
         'shipping' as type
     from stripe
     where shipping_name is not null
 ),
+{% endif %}
 
 unioned as (
 
+{% if var('customer360__using_marketo', true) %}
     select 
         mapping.customer360_id,
         mapping.customer360_organization_id,
         mapping.is_organization_header,
         marketo.full_name_clean as full_name,
-        {# name_title as title,
-        name_suffix as suffix, #}
         'primary' as type,
         'marketo' as source,
         mapping.marketo_updated_at as updated_at,
@@ -68,13 +68,14 @@ unioned as (
 
     union all
 
+{% endif %}
+{% if var('customer360__using_stripe', true) %}
+
     select 
         mapping.customer360_id,
         mapping.customer360_organization_id,
         mapping.is_organization_header,
         stripe_names.full_name,
-        {# title,
-        suffix, #}
         stripe_names.type,
         'stripe' as source,
         stripe_updated_at as updated_at,
@@ -84,15 +85,17 @@ unioned as (
     join stripe_names
         on mapping.stripe_customer_id = stripe_names.customer_id
 
+    {% if var('customer360__using_zendesk', true) %}
     union all
+    {% endif %}
+{% endif %}
 
+{% if var('customer360__using_zendesk', true) %}
     select 
         mapping.customer360_id,
         mapping.customer360_organization_id,
         mapping.is_organization_header,
         zendesk.full_name_clean as full_name,
-        {# name_title as title,
-        name_suffix as suffix, #}
         'primary' as type,
         'zendesk' as source,
         mapping.zendesk_updated_at as updated_at,
@@ -101,6 +104,7 @@ unioned as (
     from mapping
     join zendesk
         on mapping.zendesk_user_id = zendesk.user_id
+{% endif %}
 ),
 
 rank_value_confidence as (
@@ -110,8 +114,6 @@ rank_value_confidence as (
         customer360_organization_id,
         is_organization_header,
         full_name,
-        {# title,
-        suffix, #}
         type,
         source,
         count(*) over (partition by customer360_id, full_name) as value_count,
@@ -127,8 +129,6 @@ final as (
         customer360_organization_id,
         is_organization_header,
         full_name,
-        {# title,
-        suffix, #}
         type,
         source,
         dense_rank() over (partition by customer360_id order by (case when lower(full_name) in ('permanently deleted', 'placeholder contact', 'not available') then 0 else 1 end) desc,

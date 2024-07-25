@@ -1,6 +1,23 @@
 # (WIP -- currently developing on BigQuery only) Customer360 Data Model
 
-## How to run
+## Prerequisites
+To use this dbt package, you must have the following:
+
+- At least **TWO** of the following Fivetran Connectors:
+  - Marketo
+  - Stripe
+  - Zendesk
+
+If you are not using one of the above sources, set the respective `customer360__using_<soure>` variable to False:
+```yml
+# dbt_project.yml
+vars:
+  customer360__using_stripe: false # default = True
+  customer360__using_marketo: false # default = True
+  customer360__using_zendesk: false # default = True
+```
+
+## How to Run
 1. Add the following to your `packages.yml` and comment out any individual references to the Fivetran Stripe, Marketo, and Zendesk packages.
 ```yml
 packages:
@@ -38,7 +55,7 @@ The exact tables:
 - A summary table surfacing the most "confident" values (chosen from recency and frequency) from above: `customer360__summary`.
 - A customer table aggregating all metrics from Stripe, Marketo, and Zendesk.
 
-## Variables
+## Additional Configurations
 ### Grain of Source Data
 By default, this package assumes each of your data sources presents information at the Individual's level. However, if you are a b2c company, some of your data may exist at the Organization level. This is especially likely of Stripe as opposed to Zendesk and Marketo, in which typically individuals operate.
 

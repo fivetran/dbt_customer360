@@ -3,25 +3,52 @@ with mapping as (
     select * 
     from {{ ref('customer360__mapping') }}
 ),
-
+{% if var('customer360__using_marketo', true) %}
 marketo as (
 
     select *
     from {{ ref('int_customer360__marketo') }}
 ),
+{% endif %}
 
+{% if var('customer360__using_zendesk', true) %}
+zendesk as (
+
+    select *
+    from {{ ref('int_customer360__zendesk') }}
+),
+{% endif %}
+
+{% if var('customer360__using_stripe', true) %}
 stripe as (
 
     select *
     from {{ ref('int_customer360__stripe') }}
 ),
 
-zendesk as (
+stripe_phones as (
 
-    select *
-    from {{ ref('int_customer360__zendesk') }}
+    select 
+        customer_id,
+        phone,
+        phone_extension as extension,
+        'primary' as type
+    from stripe
+    where phone is not null
+
+    union all 
+
+    select 
+        customer_id,
+        shipping_phone as phone,
+        shipping_phone_extension as extension,
+        'shipping' as type
+    from stripe
+    where shipping_phone is not null
 ),
+{% endif %}
 
+{% if var('customer360__using_marketo', true) %}
 marketo_phones as (
 
     select 
@@ -52,28 +79,9 @@ marketo_phones as (
     from marketo
     where mobile_phone is not null
 ),
+{% endif %}
 
-stripe_phones as (
-
-    select 
-        customer_id,
-        phone,
-        phone_extension as extension,
-        'primary' as type
-    from stripe
-    where phone is not null
-
-    union all 
-
-    select 
-        customer_id,
-        shipping_phone as phone,
-        shipping_phone_extension as extension,
-        'shipping' as type
-    from stripe
-    where shipping_phone is not null
-),
-
+{% if var('customer360__using_zendesk', true) %}
 zendesk_phones as (
 
     select
@@ -84,9 +92,10 @@ zendesk_phones as (
     from zendesk
     where phone is not null
 ),
+{% endif %}
 
 unioned as (
-
+{% if var('customer360__using_marketo', true) %}
     select 
         mapping.customer360_id,
         mapping.customer360_organization_id,
@@ -103,7 +112,9 @@ unioned as (
         on mapping.marketo_lead_id = marketo_phones.lead_id
 
     union all
+{% endif %}
 
+{% if var('customer360__using_stripe', true) %}
     select 
         mapping.customer360_id,
         mapping.customer360_organization_id,
@@ -119,8 +130,12 @@ unioned as (
     join stripe_phones
         on mapping.stripe_customer_id = stripe_phones.customer_id
 
+    {% if var('customer360__using_zendesk', true) %}
     union all
+    {% endif %}
+{% endif %}
 
+{% if var('customer360__using_zendesk', true) %}
     select 
         mapping.customer360_id,
         mapping.customer360_organization_id,
@@ -135,6 +150,7 @@ unioned as (
     from mapping
     join zendesk_phones
         on mapping.zendesk_user_id = zendesk_phones.user_id
+{% endif %}
 ),
 
 rank_value_confidence as (

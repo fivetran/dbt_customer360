@@ -5,7 +5,7 @@ with mapping as (
 ),
 
 unioned as (
-
+{% if var('customer360__using_marketo', true) %}
     select 
         customer360_id,
         customer360_organization_id,
@@ -19,7 +19,9 @@ unioned as (
     where marketo_lead_id is not null
 
     union all
+{% endif %}
 
+{% if var('customer360__using_stripe', true) %}
     select 
         customer360_id,
         customer360_organization_id,
@@ -32,8 +34,12 @@ unioned as (
     from mapping
     where stripe_customer_id is not null
 
+    {% if var('customer360__using_zendesk', true) %}
     union all
+    {% endif %}
+{% endif %}
 
+{% if var('customer360__using_zendesk', true) %}
     select 
         mapping.customer360_id,
         mapping.customer360_organization_id,
@@ -58,6 +64,7 @@ unioned as (
 
     from mapping
     where zendesk_organization_created_at is not null
+{% endif %}
 )
 
 select * 

@@ -34,11 +34,14 @@ addresses as (
     from {{ ref('customer360__address') }}
 ),
 
+{% if var('customer360__using_marketo', true) %}
+{# Only Marketo has ip address data #}
 ip_addresses as (
 
     select *
     from {{ ref('customer360__ip_address') }}
 ),
+{% endif %}
 
 rank_email as (
 
@@ -97,6 +100,7 @@ rank_address as (
     where index = 1 
 ),
 
+{% if var('customer360__using_marketo', true) %}
 rank_ip_address as (
 
     select 
@@ -105,6 +109,7 @@ rank_ip_address as (
 
     from ip_addresses
 ),
+{% endif %}
 
 joined as (
 
@@ -128,8 +133,10 @@ joined as (
         rank_address.state,
         rank_address.country,
         rank_address.country_alt_name,
-        rank_address.postal_code,
-        rank_ip_address.ip_address
+        rank_address.postal_code
+        {% if var('customer360__using_marketo', true) %}
+        , rank_ip_address.ip_address
+        {% endif %}
 
     from mapping
     left join rank_email
@@ -142,8 +149,11 @@ joined as (
         on mapping.customer360_id = rank_organization.customer360_id
     left join rank_address
         on mapping.customer360_id = rank_address.customer360_id
+
+    {% if var('customer360__using_marketo', true) %}
     left join rank_ip_address
         on mapping.customer360_id = rank_ip_address.customer360_id
+    {% endif %}
 )
 
 select *

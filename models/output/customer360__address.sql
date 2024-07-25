@@ -1,19 +1,24 @@
+{{ config(enabled=(var('customer360__using_marketo', true) or var('customer360__using_stripe', true))) }}
+
 with mapping as (
 
     select * 
     from {{ ref('customer360__mapping') }}
 ),
 
-marketo as (
-
-    select *
-    from {{ ref('int_customer360__marketo') }}
-),
-
+{% if var('customer360__using_stripe', true) %}
 stripe as (
 
     select *
     from {{ ref('int_customer360__stripe') }}
+),
+{% endif %}
+
+{% if var('customer360__using_marketo', true) %}
+marketo as (
+
+    select *
+    from {{ ref('int_customer360__marketo') }}
 ),
 
 marketo_address as (
@@ -70,7 +75,9 @@ marketo_address as (
     from marketo
     where coalesce(inferred_city, inferred_state_long, inferred_country_long, inferred_postal_code) is not null
 ),
+{% endif %}
 
+{% if var('customer360__using_stripe', true) %}
 stripe_address as (
 
     select 
@@ -107,9 +114,11 @@ stripe_address as (
     from stripe
     where coalesce(shipping_address_line_1_long, shipping_address_line_2_long, shipping_city, shipping_state_long, shipping_country_long, shipping_postal_code) is not null
 ),
+{% endif %}
 
 unioned as (
 
+{% if var('customer360__using_marketo', true) %}
     select 
         mapping.customer360_id,
         mapping.customer360_organization_id,
@@ -131,9 +140,12 @@ unioned as (
     from mapping
     join marketo_address
         on mapping.marketo_lead_id = marketo_address.lead_id
-
+{% endif %}
+    
+{% if var('customer360__using_stripe', true) and var('customer360__using_marketo', true) %}
     union all
-
+{% endif %}
+{% if var('customer360__using_stripe', true) %}
     select 
         mapping.customer360_id,
         mapping.customer360_organization_id,
@@ -155,6 +167,7 @@ unioned as (
     from mapping
     join stripe_address
         on mapping.stripe_customer_id = stripe_address.customer_id
+{% endif %}
 ),
 
 rank_value_confidence as (
