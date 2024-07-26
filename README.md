@@ -27,7 +27,7 @@ packages:
 ```
 2. Execute `dbt deps`
 3. Execute `dbt seed -m customer360 --full-refresh`
-4. Execute `dbt run -m +customer360`
+4. Execute `dbt run -m +customer360` (this will run everything upstream)
 
 ## Output
 Unified "customer" view.
