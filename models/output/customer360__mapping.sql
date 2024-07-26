@@ -120,9 +120,9 @@ create_org_header_row as (
         false as is_organization_header,
         {{ match_id_list | join(', ') }},
         '{' || 
-            {%- if var('customer360__using_marketo', true) -%}'"marketo":"' || marketo_lead_id || '",' || {%- endif -%}
-            {%- if var('customer360__using_stripe', true) -%} '"stripe":"' || stripe_customer_id || '"' {% if var('customer360__using_zendesk', true) -%} || ',' || {%- endif -%}{%- endif -%}
-            {% if var('customer360__using_zendesk', true) -%} '"zendesk":"' || zendesk_user_id || '"' {%- endif -%} 
+            {%- if var('customer360__using_marketo', true) -%}'"marketo":"' || coalesce(cast(marketo_lead_id as {{ dbt.type_string() }}), '') || '",' || {%- endif -%}
+            {%- if var('customer360__using_stripe', true) -%} '"stripe":"' || coalesce(stripe_customer_id, '') || '"' {% if var('customer360__using_zendesk', true) -%} || ',' || {%- endif -%}{%- endif -%}
+            {% if var('customer360__using_zendesk', true) -%} '"zendesk":"' || coalesce(cast(zendesk_user_id as {{ dbt.type_string() }}), '') || '"' {%- endif -%} 
         || '}' as source_ids
 
         {%- if var('customer360__using_marketo', true) -%}
@@ -168,13 +168,13 @@ create_org_header_row as (
 
         '{' || 
         {%- if var('customer360__using_marketo', true) -%}
-            '"marketo":' || '[' || {{ fivetran_utils.string_agg(field_to_agg="distinct '\"' || cast(marketo_lead_id as " ~ dbt.type_string() ~ ") || '\"'", delimiter="','") }} || '],' || 
+            '"marketo":' || '[' || {{ fivetran_utils.string_agg(field_to_agg="distinct '\"' || coalesce(cast(marketo_lead_id as " ~ dbt.type_string() ~ "), '') || '\"'", delimiter="','") }} || '],' || 
         {%- endif -%}
         {%- if var('customer360__using_stripe', true) -%}
-            '"stripe":' || '[' || {{ fivetran_utils.string_agg(field_to_agg="distinct '\"' || stripe_customer_id || '\"'", delimiter="','") }} || ']' {%- if var('customer360__using_zendesk', true) -%} || ',' || {%- endif -%}
+            '"stripe":' || '[' || {{ fivetran_utils.string_agg(field_to_agg="distinct '\"' || coalesce(stripe_customer_id, '') || '\"'", delimiter="','") }} || ']' {%- if var('customer360__using_zendesk', true) -%} || ',' || {%- endif -%}
         {%- endif -%}
         {%- if var('customer360__using_zendesk', true) -%}
-            '"zendesk":' || '[' || {{ fivetran_utils.string_agg(field_to_agg="distinct '\"' || cast(zendesk_user_id as " ~ dbt.type_string() ~ ") || '\"'", delimiter="','") }} || ']'
+            '"zendesk":' || '[' || {{ fivetran_utils.string_agg(field_to_agg="distinct '\"' || coalesce(cast(zendesk_user_id as " ~ dbt.type_string() ~ "), '') || '\"'", delimiter="','") }} || ']'
         {%- endif -%} 
         || '}' as source_ids
 
