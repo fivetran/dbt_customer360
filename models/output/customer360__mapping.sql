@@ -118,7 +118,7 @@ create_org_header_row as (
         {%- if var('customer360__using_stripe', true) -%} stripe_customer_id,{%- endif -%}
         {%- if var('customer360__using_zendesk', true) -%} zendesk_user_id,{%- endif -%}
         false as is_organization_header,
-        {{ match_id_list | join(', ') }},
+        {{ match_id_list | join(', ') }}{%- if match_id_list|length > 0 -%},{% endif %}
         '{' || 
             {%- if var('customer360__using_marketo', true) -%}'"marketo":"' || coalesce(cast(marketo_lead_id as {{ dbt.type_string() }}), '') || '",' || {%- endif -%}
             {%- if var('customer360__using_stripe', true) -%} '"stripe":"' || coalesce(stripe_customer_id, '') || '"' {% if var('customer360__using_zendesk', true) -%} || ',' || {%- endif -%}{%- endif -%}

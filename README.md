@@ -8,26 +8,21 @@ To use this dbt package, you must have the following:
   - Stripe
   - Zendesk
 
-If you are not using one of the above sources, set the respective `customer360__using_<soure>` variable to False:
+If you are not using one of the above sources, set the respective `customer360__using_<soure>` variable to `False`:
 ```yml
 # dbt_project.yml
 vars:
+  # Not using Stripe?
   customer360__using_stripe: false # default = True
+
+  # Not using Marketo? 
   customer360__using_marketo: false # default = True
+
+  # Not using Zendesk?
   customer360__using_zendesk: false # default = True
 ```
 
-## How to Run
-1. Add the following to your `packages.yml` and comment out any individual references to the Fivetran Stripe, Marketo, and Zendesk packages.
-```yml
-packages:
-  - git: https://github.com/fivetran/dbt_customer360.git # this will install Stripe, Marketo, and Zendesk as dependencies
-    revision: main
-    warn-unpinned: false
-```
-2. Execute `dbt deps`
-3. Execute `dbt seed -m customer360 --full-refresh`
-4. Execute `dbt run -m +customer360` (this will run everything upstream)
+> No need to set these variables to `True` if you are using the respective source. The package will assume the value to be true.
 
 ## Output
 Unified "customer" view.
@@ -55,9 +50,20 @@ The exact tables:
 - A summary table surfacing the most "confident" values (chosen from recency and frequency) from above: `customer360__summary`.
 - A customer table aggregating all metrics from Stripe, Marketo, and Zendesk.
 
-## Additional Configurations
-### Grain of Source Data
-By default, this package assumes each of your data sources presents information at the Individual's level. However, if you are a b2c company, some of your data may exist at the Organization level. This is especially likely of Stripe as opposed to Zendesk and Marketo, in which typically individuals operate.
+## Step 1: Install Package
+1. Go to your project's `packages.yml` and comment out any individual references to the Fivetran Stripe, Marketo, and Zendesk packages.
+2. Add the following instead (ths will install Stripe, Marketo, and Zendesk as dependencies).
+```yml
+packages:
+  - git: https://github.com/fivetran/dbt_customer360.git # this will install Stripe, Marketo, and Zendesk as dependencies
+    revision: main
+    warn-unpinned: false
+```
+
+## Step 2: Configure Package Variables
+
+### A. Grain of Source Data
+By default, this package assumes each of your data sources presents information at the Individual's level. However, if you are a b2c company, some of your data may exist at the Organization level only. This is especially likely of Stripe as opposed to Zendesk and Marketo, in which typically individuals operate.
 
 Tell the package the grain of your source data to better perform identity resolution.
 ```yml
@@ -67,20 +73,7 @@ vars:
   customer360_grain_zendesk: organization # default = individual
 ```
 
-### Stripe Individual-Name Configs
-Stripe doesn't have distinct name fields for individuals vs organizations. If you store both the indvidual and the company name, and in a consistent enforced format, use the below variables to tell the package how to parse them out from the Stripe `CUSTOMER.customer_name` and `CUSTOMER.shipping_name` fields.
-
-```yml
-vars:
-    stripe_customer_full_name_extract_sql: "replace( {{ dbt.split_part('customer_name', \"' ('\", 2) }}, ')', '')" # How to extract the individual name from `customer_name`
-    stripe_customer_organization_name_extract_sql: "coalesce({{ dbt.split_part('customer_name', \"' ('\", 1) }}, customer_name)" # How to extract the company name from `customer_name`
-    stripe_shipping_full_name_extract_sql: "replace( {{ dbt.split_part('shipping_name', \"' ('\", 2) }}, ')', '')" # How to extract the individual name from `shipping_name`
-    stripe_shipping_organization_name_extract_sql: "coalesce({{ dbt.split_part('shipping_name', \"' ('\", 1) }}, shipping_name)" # How to extract the company name from `shipping_name`
-```
-
-The above example code is intended for environments in which Stripe names are stored as `Company Name (Individual Name)`.
-
-### Leveraging Custom/Internal IDs
+### B. Leveraging Custom/Internal IDs
 By default, the package will perform identity matching based on:
 - email
 - phone number
@@ -100,7 +93,7 @@ vars:
           stripe:
             match_key: salesforce_account_id
           zendesk:
-              map_table: digital-arbor-400.intermediate_tables.salesforce_to_fivetran_account
+              map_table: db-name.intermediate_tables.salesforce_to_fivetran_account
               source: user | organization # should we use zendesk.USER or zendesk.ORGANIZATION
               join_with_map_on: custom_fivetran_account_id
               map_table_join_on: fivetran_account_id_c
@@ -126,3 +119,20 @@ You can provide multiple "match sets" such as the above. The arguments are as fo
   - `map_table` (required only if using mapping): The full `<database>.<schema>.<table>` identifier for the mapping table. Do not include quotes. This cannot be a `ref()` :disappointed:
   - `join_with_map_on` (required only if using mapping): Which source field from either `marketo__leads`, `stripe__customer_overview`, `stg_zendesk__user`, or `stg_zendesk__organization` to use for joining with the mapping table.
   - `map_table_join_on`: Which field from the mapping table to use for joining with either `marketo__leads`, `stripe__customer_overview`, `stg_zendesk__user`, or `stg_zendesk__organization`.
+
+### C. Stripe Individual-Name Configs
+Stripe doesn't have distinct name fields for individuals vs organizations. If you store both the indvidual and the company name, and in a consistent enforced format, use the below variables to tell the package how to parse them out from the Stripe `CUSTOMER.customer_name` and `CUSTOMER.shipping_name` fields.
+
+```yml
+vars:
+    stripe_customer_full_name_extract_sql: "replace( {{ dbt.split_part('customer_name', \"' ('\", 2) }}, ')', '')" # How to extract the individual name from `customer_name`. Default = customer_name
+    stripe_customer_organization_name_extract_sql: "coalesce({{ dbt.split_part('customer_name', \"' ('\", 1) }}, customer_name)" # How to extract the company name from `customer_name`. Default = customer_name
+    stripe_shipping_full_name_extract_sql: "replace( {{ dbt.split_part('shipping_name', \"' ('\", 2) }}, ')', '')" # How to extract the individual name from `shipping_name`. Default = shipping_name
+    stripe_shipping_organization_name_extract_sql: "coalesce({{ dbt.split_part('shipping_name', \"' ('\", 1) }}, shipping_name)" # How to extract the company name from `shipping_name`. Default = shipping_name
+```
+
+The above example code is intended for environments in which Stripe names are stored as `Company Name (Individual Name)`.
+
+### Step 3: Run Models! 
+1. Execute `dbt seed -m customer360 --full-refresh`. This will seed in some utilities files that map Countries and Territories onto their abbreviations and individual's nicknames onto their longform names.
+2. Execute `dbt run -m +customer360`. This will run everything (that's enabled) upstream of and within the Customer360 package.

@@ -78,30 +78,14 @@ standardize as (
         -- full  name
         ---- in Stripe this can reflect an individual, an organization, or potentially both.
         ---- in the case of both, use the following variables to split them up based on your internally enforced pattern.
-        {% if var('stripe_customer_full_name_extract_sql') -%}
-        {{ var('stripe_customer_full_name_extract_sql') }} as
-        {%- endif %}
-            customer_name,
-
-        {% if var('stripe_shipping_full_name_extract_sql') -%}
-        {{ var('stripe_shipping_full_name_extract_sql') }} as
-        {%- endif %}
-            shipping_name,
+        {{ var('stripe_customer_full_name_extract_sql', 'customer_name') }} as customer_name,
+        {{ var('stripe_shipping_full_name_extract_sql', 'shipping_name') }} as shipping_name,
 
         -- organization name (in stripe there's one field that maps onto both)
         ---- in Stripe this can reflect an individual, an organization, or potentially both.
         ---- in the case of both, use the following variables to split them up based on your internally enforced pattern.
-        {% if var('stripe_customer_organization_name_extract_sql') -%}
-        {{ var('stripe_customer_organization_name_extract_sql') }}
-        {%- else %}
-        customer_name
-        {%- endif %} as customer_organization_name,
-
-        {% if var('stripe_shipping_organization_name_extract_sql') -%}
-        {{ var('stripe_shipping_organization_name_extract_sql') }}
-        {%- else %}
-        shipping_name
-        {%- endif %} as shipping_organization_name,
+        {{ var('stripe_customer_organization_name_extract_sql', 'customer_name') }} as customer_organization_name,
+        {{ var('stripe_shipping_organization_name_extract_sql', 'shipping_name') }} as shipping_organization_name,
 
         -- phone
         -- remove non-alphanumeric characters and standardize extension format 
