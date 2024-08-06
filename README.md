@@ -1,12 +1,10 @@
 # (WIP -- currently developing on BigQuery only) Customer360 Data Model
 
 ## Prerequisites
-To use this dbt package, you must have the following:
-
-- At least **TWO** of the following Fivetran Connectors:
-  - Marketo
-  - Stripe
-  - Zendesk
+To use this dbt package, you must have at least **TWO** of the following Fivetran Connectors:
+- Marketo
+- Stripe
+- Zendesk
 
 If you are not using one of the above sources, set the respective `customer360__using_<soure>` variable to `False`:
 ```yml
@@ -36,9 +34,9 @@ Each record where `is_organization_header=False` will represent an Individual (o
 
 > Note: If you are a b2c organization, your source Stripe customer data (and potentially Marketo) may only exist at the organizational level, while other sources (Zendesk and likely Marketo) typically provide customer data at the individual level. See the "Grain of Source Data" section below.
 
-The exact tables:
+### The exact tables:
 - `customer360__mapping`: Complete mapping of customer IDs from Marketo, Zendesk, and Stripe onto each other.
-- Child informational tables with all values found for a customer across all 3 sources;
+- Child informational tables with all values found for a customer across all 3 sources:
   - `customer360__address`
   - `customer360__email`
   - `customer360__phone`
@@ -50,7 +48,8 @@ The exact tables:
 - A summary table surfacing the most "confident" values (chosen from recency and frequency) from above: `customer360__summary`.
 - A customer table aggregating all metrics from Stripe, Marketo, and Zendesk.
 
-## Step 1: Install Package
+## How to Run
+### Step 1: Install Package
 1. Go to your project's `packages.yml` and comment out any individual references to the Fivetran Stripe, Marketo, and Zendesk packages.
 2. Add the following instead (ths will install Stripe, Marketo, and Zendesk as dependencies).
 ```yml
@@ -60,9 +59,9 @@ packages:
     warn-unpinned: false
 ```
 
-## Step 2: Configure Package Variables
+### Step 2: Configure Package Variables
 
-### A. Grain of Source Data
+#### A. Grain of Source Data
 By default, this package assumes each of your data sources presents information at the Individual's level. However, if you are a b2c company, some of your data may exist at the Organization level only. This is especially likely of Stripe as opposed to Zendesk and Marketo, in which typically individuals operate.
 
 Tell the package the grain of your source data to better perform identity resolution.
@@ -73,7 +72,7 @@ vars:
   customer360_grain_zendesk: organization # default = individual
 ```
 
-### B. Leveraging Custom/Internal IDs
+#### B. Leveraging Custom/Internal IDs
 By default, the package will perform identity matching based on:
 - email
 - phone number
@@ -120,7 +119,7 @@ You can provide multiple "match sets" such as the above. The arguments are as fo
   - `join_with_map_on` (required only if using mapping): Which source field from either `marketo__leads`, `stripe__customer_overview`, `stg_zendesk__user`, or `stg_zendesk__organization` to use for joining with the mapping table.
   - `map_table_join_on`: Which field from the mapping table to use for joining with either `marketo__leads`, `stripe__customer_overview`, `stg_zendesk__user`, or `stg_zendesk__organization`.
 
-### C. Stripe Individual-Name Configs
+#### C. Stripe Individual-Name Configs
 Stripe doesn't have distinct name fields for individuals vs organizations. If you store both the indvidual and the company name, and in a consistent enforced format, use the below variables to tell the package how to parse them out from the Stripe `CUSTOMER.customer_name` and `CUSTOMER.shipping_name` fields.
 
 ```yml
