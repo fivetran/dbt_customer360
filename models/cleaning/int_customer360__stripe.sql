@@ -457,8 +457,8 @@ add_nicknames as (
         updated_at,
         created_at,
 
-        {{ fivetran_utils.string_agg(field_to_agg="distinct customer_nicknames.canonical_name", delimiter="', '") }} as customer_possible_alt_first_names,
-        {{ fivetran_utils.string_agg(field_to_agg="distinct shipping_nicknames.canonical_name", delimiter="', '") }} as shipping_possible_alt_first_names
+        {{ dbt.listagg(measure="distinct customer_nicknames.canonical_name", delimiter_text="', '") }} as customer_possible_alt_first_names,
+        {{ dbt.listagg(measure="distinct shipping_nicknames.canonical_name", delimiter_text="', '") }} as shipping_possible_alt_first_names
     
     from split_first_name
     left join {{ ref('customer360__nicknames') }} as customer_nicknames 

@@ -160,7 +160,7 @@ create_org_header_row as (
                 {%- if match_set.customer_grain == 'organization' or get_highest_common_grain() == 'individual' %}
                     {{ match_set.name }},
                 {% else %}
-                    '[' || {{ fivetran_utils.string_agg(field_to_agg="distinct '\"' || cast(" ~ match_set.name ~ " as " ~ dbt.type_string() ~ ") || '\"'", delimiter="','") }} || ']' as {{ match_set.name }},
+                    '[' || {{ dbt.listagg(measure="distinct '\"' || cast(" ~ match_set.name ~ " as " ~ dbt.type_string() ~ ") || '\"'", delimiter_text="','") }} || ']' as {{ match_set.name }},
                     {% do individual_match_id_list.append(match_set.name) -%}
                 {% endif %}
             {%- endfor %}
@@ -168,13 +168,13 @@ create_org_header_row as (
 
         '{' || 
         {%- if var('customer360__using_marketo', true) -%}
-            '"marketo":' || '[' || {{ fivetran_utils.string_agg(field_to_agg="distinct '\"' || coalesce(cast(marketo_lead_id as " ~ dbt.type_string() ~ "), '') || '\"'", delimiter="','") }} || '],' || 
+            '"marketo":' || '[' || {{ dbt.listagg(measure="distinct '\"' || coalesce(cast(marketo_lead_id as " ~ dbt.type_string() ~ "), '') || '\"'", delimiter_text="','") }} || '],' || 
         {%- endif -%}
         {%- if var('customer360__using_stripe', true) -%}
-            '"stripe":' || '[' || {{ fivetran_utils.string_agg(field_to_agg="distinct '\"' || coalesce(stripe_customer_id, '') || '\"'", delimiter="','") }} || ']' {%- if var('customer360__using_zendesk', true) -%} || ',' || {%- endif -%}
+            '"stripe":' || '[' || {{ dbt.listagg(measure="distinct '\"' || coalesce(stripe_customer_id, '') || '\"'", delimiter_text="','") }} || ']' {%- if var('customer360__using_zendesk', true) -%} || ',' || {%- endif -%}
         {%- endif -%}
         {%- if var('customer360__using_zendesk', true) -%}
-            '"zendesk":' || '[' || {{ fivetran_utils.string_agg(field_to_agg="distinct '\"' || coalesce(cast(zendesk_user_id as " ~ dbt.type_string() ~ "), '') || '\"'", delimiter="','") }} || ']'
+            '"zendesk":' || '[' || {{ dbt.listagg(measure="distinct '\"' || coalesce(cast(zendesk_user_id as " ~ dbt.type_string() ~ "), '') || '\"'", delimiter_text="','") }} || ']'
         {%- endif -%} 
         || '}' as source_ids
 
