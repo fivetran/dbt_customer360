@@ -466,7 +466,7 @@ final as (
         updated_at,
         created_at,
 
-        {{ fivetran_utils.string_agg(field_to_agg="distinct nicknames.canonical_name", delimiter="', '") }} as possible_alt_first_names
+        {{ dbt.listagg(measure="distinct nicknames.canonical_name", delimiter_text="', '") }} as possible_alt_first_names
 
     from restandardize
     left join {{ ref('customer360__nicknames') }} as nicknames 
